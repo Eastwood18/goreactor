@@ -1,2 +1,2 @@
 # goreactor
-a main reactor and multi sub reactor IO multiplexing net model
+A IO Multiplexing Network Model with Single Main Reactor and Multiple Sub Reactors, by Golang
