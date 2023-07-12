@@ -1,2 +1,2 @@
 # goreactor
-a main reactor and multi sub reactor IO multiplexing net modu
+a main reactor and multi sub reactor IO multiplexing net model
