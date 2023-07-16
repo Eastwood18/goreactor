@@ -2,14 +2,13 @@ package goreaction
 
 import (
 	"errors"
+	"golang.org/x/sys/unix"
 	"goreaction/eventloop"
 	"goreaction/poller"
 	"goreaction/utils/reuseport"
 	"log"
 	"net"
 	"os"
-
-	"golang.org/x/sys/unix"
 )
 
 type handleConnFunc func(fd int, sa unix.Sockaddr)
@@ -28,6 +27,15 @@ func newListener(network, addr string, reusePort bool, handlerConn handleConnFun
 		err error
 	)
 	if reusePort {
+		//reusePortCfg := net.ListenConfig{
+		//	Control: func(network, address string, c syscall.RawConn) error {
+		//		return c.Control(func(fd uintptr) {
+		//			syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, unix.SO_REUSEADDR, 1)
+		//			syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, unix.SO_REUSEPORT, 1)
+		//		})
+		//	},
+		//}
+		//ls, err = reusePortCfg.Listen(nil, network, addr)
 		ls, err = reuseport.Listen(network, addr)
 		if err != nil {
 			return nil, err

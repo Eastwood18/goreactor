@@ -79,7 +79,7 @@ func (s *Server) RunEvery(d time.Duration, f func()) *timingwheel.Timer {
 func (s *Server) handleNewConnection(fd int, sa unix.Sockaddr) {
 	loadBalance := RoundRobin()
 	loop := loadBalance(s.workLoops)
-	c := NewConnection(fd, loop, sa, "", s.timingWheel, s.opts.IdleTime, s.callback)
+	c := NewConnection(fd, loop, sa, s.opts.Protocol, s.timingWheel, s.opts.IdleTime, s.callback)
 
 	loop.QueueInLoop(func() {
 		s.callback.OnConnect(c)

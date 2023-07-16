@@ -8,6 +8,7 @@ type Options struct {
 	NumLoops  int
 	ReusePort bool
 	IdleTime  time.Duration
+	Protocol  Protocol
 
 	tick      time.Duration
 	wheelSize int64
@@ -33,6 +34,9 @@ func newOptions(opt ...Option) *Options {
 	}
 	if opts.wheelSize == 0 {
 		opts.wheelSize = 1000
+	}
+	if opts.Protocol == nil {
+		opts.Protocol = &DefaultProtocol{}
 	}
 
 	return &opts
@@ -70,5 +74,11 @@ func NumLoops(n int) Option {
 func IdleTime(t time.Duration) Option {
 	return func(o *Options) {
 		o.IdleTime = t
+	}
+}
+
+func CustomProtocol(p Protocol) Option {
+	return func(o *Options) {
+		o.Protocol = p
 	}
 }

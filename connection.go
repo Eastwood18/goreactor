@@ -33,12 +33,12 @@ type Connection struct {
 	loop       *eventloop.EventLoop
 	peerAddr   string
 	ctx        interface{}
-	//KeyValueContext
+	KeyValueContext
 
 	idleTime    time.Duration
 	timingWheel *timingwheel.TimingWheel
 	timer       atomic.Value
-	protocol    string
+	protocol    Protocol
 }
 
 var ErrConnectionClosed = errors.New("connection closed")
@@ -46,7 +46,7 @@ var ErrConnectionClosed = errors.New("connection closed")
 func NewConnection(fd int,
 	loop *eventloop.EventLoop,
 	sa unix.Sockaddr,
-	protocol string,
+	protocol Protocol,
 	tw *timingwheel.TimingWheel,
 	idleTime time.Duration,
 	back Callback) *Connection {
@@ -111,9 +111,10 @@ func (c *Connection) Send(data []byte) error {
 	if !c.connected.Load() {
 		return ErrConnectionClosed
 	}
+
 	c.loop.QueueInLoop(func() {
 		if c.connected.Load() {
-			c.sendInLoop(data)
+			c.sendInLoop(c.protocol.Packet(c, data))
 		}
 	})
 	return nil
@@ -220,37 +221,55 @@ func (c *Connection) handleRead(fd int) (closed bool) {
 		c.buf.WithData(buf[:n])
 		buf = buf[n:n]
 		// c.handleProtocol
-
-		recvData := c.recv()
-		if len(recvData) != 0 {
-			sendData := c.callback.OnMessage(c, nil, recvData)
-			if sendData != nil {
-				buf = append(buf, sendData.([]byte)...)
-			}
-		}
-
+		c.handlerProtocol(&buf, c.buf)
 		if !c.buf.IsEmpty() {
-			ft, _ := c.buf.PeekAll()
-			c.inBuf.Write(ft)
+			first, _ := c.buf.PeekAll()
+			_, _ = c.inBuf.Write(first)
 		}
+		//recvData := c.recv()
+		//if len(recvData) != 0 {
+		//	sendData := c.callback.OnMessage(c, nil, recvData)
+		//	if sendData != nil {
+		//		buf = append(buf, sendData.([]byte)...)
+		//	}
+		//}
+		//
+		//if !c.buf.IsEmpty() {
+		//	ft, _ := c.buf.PeekAll()
+		//	c.inBuf.Write(ft)
+		//}
 	} else {
-		c.inBuf.Write(buf[:n])
+		//c.inBuf.Write(buf[:n])
+		//buf = buf[:0]
+		//// c.handleProtocol
+		//recvData := c.recv()
+		//if len(recvData) != 0 {
+		//	sendData := c.callback.OnMessage(c, nil, recvData)
+		//	if sendData != nil {
+		//		buf = append(buf, sendData.([]byte)...)
+		//	}
+		//}
+		_, _ = c.inBuf.Write(buf[:n])
 		buf = buf[:0]
-		// c.handleProtocol
-		recvData := c.recv()
-		if len(recvData) != 0 {
-			sendData := c.callback.OnMessage(c, nil, recvData)
-			if sendData != nil {
-				buf = append(buf, sendData.([]byte)...)
-			}
-		}
-
+		c.handlerProtocol(&buf, c.inBuf)
 	}
 	if len(buf) != 0 {
 		closed = c.sendInLoop(buf)
 	}
 
 	return
+}
+
+func (c *Connection) handlerProtocol(tmpBuffer *[]byte, buffer *ringbuffer.RingBuffer) {
+	ctx, receivedData := c.protocol.UnPacket(c, buffer)
+	for ctx != nil || len(receivedData) != 0 {
+		sendData := c.callback.OnMessage(c, ctx, receivedData)
+		if sendData != nil {
+			*tmpBuffer = append(*tmpBuffer, c.protocol.Packet(c, sendData)...)
+		}
+
+		ctx, receivedData = c.protocol.UnPacket(c, buffer)
+	}
 }
 
 func (c *Connection) recv() []byte {
